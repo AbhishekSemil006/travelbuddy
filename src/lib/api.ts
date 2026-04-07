@@ -14,7 +14,7 @@ export const api = {
     if (!res.ok) throw new Error(`API GET error: ${res.status} ${res.statusText}`);
     return res.json();
   },
-  post: async (endpoint: string, body: any) => {
+  post: async (endpoint: string, body: unknown) => {
   try {
     const res = await fetch(`${API_BASE_URL}${endpoint}`, {
       method: 'POST',
@@ -39,7 +39,7 @@ export const api = {
   postForm: async (endpoint: string, formData: FormData) => {
     try {
       const headers = getHeaders();
-      delete (headers as any)['Content-Type']; // Let browser set Content-Type with boundary
+      delete (headers as Record<string, string>)['Content-Type']; // Let browser set Content-Type with boundary
 
       const res = await fetch(`${API_BASE_URL}${endpoint}`, {
         method: 'POST',
@@ -59,7 +59,7 @@ export const api = {
       throw err;
     }
   },
-  patch: async (endpoint: string, body: any) => {
+  patch: async (endpoint: string, body: unknown) => {
     const res = await fetch(`${API_BASE_URL}${endpoint}`, {
       method: 'PATCH',
       headers: getHeaders(),

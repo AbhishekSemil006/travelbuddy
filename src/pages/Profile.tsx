@@ -37,11 +37,6 @@ const Profile = () => {
   const { isAdmin } = useAdminRole();
   const navigate = useNavigate();
   
-// 🔒 Protect route
-  if (!user) {
-   return <Navigate to="/auth" replace />;
-  }
- 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [displayName, setDisplayName] = useState('');
@@ -52,6 +47,8 @@ const Profile = () => {
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [verificationStatus, setVerificationStatus] = useState<string>('none');
   const [uploadingId, setUploadingId] = useState(false);
+
+
 
   useEffect(() => {
     if (!user) return;
@@ -102,8 +99,8 @@ const Profile = () => {
         languages,
       });
       toast.success('Profile updated successfully!');
-    } catch (err: any) {
-      toast.error(err.message || 'Failed to update profile');
+    } catch (err: unknown) {
+      toast.error((err as Error).message || 'Failed to update profile');
     } finally {
       setSaving(false);
     }
@@ -129,8 +126,8 @@ const Profile = () => {
       await api.postForm('/users/me/upload-id', formData);
       toast.success('ID submitted successfully for verification!'); 
       setVerificationStatus('pending');
-    } catch (err: any) {
-      toast.error(err.message || 'Failed to submit ID document');
+    } catch (err: unknown) {
+      toast.error((err as Error).message || 'Failed to submit ID document');
     } finally {
       setUploadingId(false);
     }
@@ -139,6 +136,11 @@ const Profile = () => {
   const toggleItem = (item: string, list: string[], setter: (v: string[]) => void) => {
     setter(list.includes(item) ? list.filter((i) => i !== item) : [...list, item]);
   };
+
+  // 🔒 Protect route
+  if (!user) {
+    return <Navigate to="/auth" replace />;
+  }
 
   if (loading) {
     return (

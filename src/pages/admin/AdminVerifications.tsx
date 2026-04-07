@@ -48,8 +48,8 @@ const AdminVerifications = () => {
       await api.patch(`/admin/users/${id}/verify`, {});
       toast.success('User verified successfully');
       setUsers((prev) => prev.filter((u) => u._id !== id));
-    } catch (err: any) {
-      toast.error(err.message || 'Failed to verify user');
+    } catch (err: unknown) {
+      toast.error((err as Error).message || 'Failed to verify user');
     }
   };
 
@@ -58,8 +58,8 @@ const AdminVerifications = () => {
       await api.delete(`/admin/users/${id}`);
       toast.success('User rejected and removed');
       setUsers((prev) => prev.filter((u) => u._id !== id));
-    } catch (err: any) {
-      toast.error(err.message || 'Failed to reject user');
+    } catch (err: unknown) {
+      toast.error((err as Error).message || 'Failed to reject user');
     }
   };
 
