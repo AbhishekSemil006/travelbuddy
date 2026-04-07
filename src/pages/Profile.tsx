@@ -36,7 +36,7 @@ const Profile = () => {
   const { user, signOut } = useAuth();
   const { isAdmin } = useAdminRole();
   const navigate = useNavigate();
-  
+
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [displayName, setDisplayName] = useState('');
@@ -124,7 +124,7 @@ const Profile = () => {
       const formData = new FormData();
       formData.append('file', file);
       await api.postForm('/users/me/upload-id', formData);
-      toast.success('ID submitted successfully for verification!'); 
+      toast.success('ID submitted successfully for verification!');
       setVerificationStatus('pending');
     } catch (err: unknown) {
       toast.error((err as Error).message || 'Failed to submit ID document');
@@ -281,8 +281,8 @@ const Profile = () => {
                 {verificationStatus === 'pending'
                   ? 'Your ID is being reviewed. This usually takes 24–48 hours.'
                   : verificationStatus === 'rejected'
-                  ? 'Your previous submission was rejected. Please upload a clearer document.'
-                  : 'Verify your identity to build trust with other travelers.'}
+                    ? 'Your previous submission was rejected. Please upload a clearer document.'
+                    : 'Verify your identity to build trust with other travelers.'}
               </CardDescription>
             </CardHeader>
             {verificationStatus !== 'pending' && (
