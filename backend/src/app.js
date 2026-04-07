@@ -3,7 +3,7 @@ import morgan from 'morgan';
 import rateLimit from 'express-rate-limit';
 import helmet from 'helmet';
 import mongoSanitize from 'express-mongo-sanitize';
-import xss from 'xss-clean';
+
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
 
@@ -52,8 +52,12 @@ app.use(express.json({ limit: '10kb' }));
 app.use(express.urlencoded({ extended: true, limit: '10kb' }));
 app.use(cookieParser());
 
-app.use(mongoSanitize());
-app.use(xss());
+app.use(
+  mongoSanitize({
+    replaceWith: '_', // ✅ prevents breaking req.query
+  })
+);
+
 
 // 2) ROUTES
 
