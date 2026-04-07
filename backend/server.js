@@ -1,0 +1,39 @@
+import mongoose from 'mongoose';
+import dotenv from 'dotenv';
+import { app } from './src/app.js';
+
+dotenv.config();
+
+process.on('uncaughtException', (err) => {
+  console.log('UNCAUGHT EXCEPTION! 💥 Shutting down...');
+  console.log(err.name, err.message);
+  process.exit(1);
+});
+
+const DB = process.env.MONGO_URI;
+
+mongoose
+  .connect(DB)
+  .then(() => console.log('DB connection successful!'));
+
+const port = process.env.PORT || 8081;
+const server = app.listen(port, () => {
+  console.log(`App running on port ${port}...`);
+});
+
+process.on('unhandledRejection', (err) => {
+  console.log('UNHANDLED REJECTION! 💥 Shutting down...');
+  console.log(err.name, err.message);
+  server.close(() => {
+    process.exit(1);
+  });
+});
+
+app.use((err, req, res, next) => {
+  console.error("Global error handler:", err);
+  res.status(err.statusCode || 500).json({
+    status: 'error',
+    message: err.message || 'Internal Server Error'
+  });
+});
+
