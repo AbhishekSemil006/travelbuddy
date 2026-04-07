@@ -68,6 +68,16 @@ const Profile = () => {
           setLanguages(p.languages || []);
           setAvatarUrl(p.avatarUrl || null);
         }
+        if (res?.data?.user) {
+          const u = res.data.user;
+          if (u.isVerified) {
+            setVerificationStatus('approved');
+          } else if (u.governmentId) {
+            setVerificationStatus('pending');
+          } else {
+            setVerificationStatus('none');
+          }
+        }
       } catch (err) {
         console.error('Failed to fetch profile:', err);
       } finally {
@@ -113,10 +123,17 @@ const Profile = () => {
     if (file.size > 10 * 1024 * 1024) { toast.error('Document must be under 10 MB'); return; }
 
     setUploadingId(true);
-    // Mock save logic
-    toast.success('ID submitted for verification! (stub)'); 
-    setVerificationStatus('pending');
-    setUploadingId(false);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      await api.postForm('/users/me/upload-id', formData);
+      toast.success('ID submitted successfully for verification!'); 
+      setVerificationStatus('pending');
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to submit ID document');
+    } finally {
+      setUploadingId(false);
+    }
   };
 
   const toggleItem = (item: string, list: string[], setter: (v: string[]) => void) => {

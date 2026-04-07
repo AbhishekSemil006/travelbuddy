@@ -3,7 +3,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { api } from '@/lib/api';
 import { motion } from 'framer-motion';
-import { ShieldAlert, CheckCircle, Trash2, Loader2, UserCircle } from 'lucide-react';
+import { ShieldAlert, CheckCircle, Trash2, Loader2, UserCircle, Clock } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 
@@ -13,6 +13,7 @@ interface UserData {
   email: string;
   isVerified: boolean;
   createdAt: string;
+  governmentId?: string;
 }
 
 const AdminVerifications = () => {
@@ -103,7 +104,19 @@ const AdminVerifications = () => {
 
             <div className="text-sm text-muted-foreground">
               <p>Registered: {new Date(u.createdAt).toLocaleDateString()}</p>
-              <p className="text-xs mt-1 italic">Awaiting document review (mock)</p>
+              {u.governmentId ? (
+                <div className="mt-3 bg-secondary/30 rounded-md p-2">
+                  <p className="text-xs font-semibold text-foreground mb-2 flex items-center gap-1.5"><ShieldAlert className="h-3 w-3" /> Submitted Document</p>
+                  <a href={u.governmentId} target="_blank" rel="noopener noreferrer" className="block relative group overflow-hidden rounded border border-border">
+                    <img src={u.governmentId} alt="Gov ID" className="w-full h-24 object-cover hover:opacity-80 transition-opacity" />
+                    <div className="absolute inset-x-0 bottom-0 bg-background/80 text-[10px] p-1 text-center font-medium opacity-0 group-hover:opacity-100 transition-opacity">Click to view full</div>
+                  </a>
+                </div>
+              ) : (
+                <p className="text-xs mt-3 italic text-amber-500 bg-amber-500/10 p-2 rounded flex items-center gap-2">
+                  <Clock className="h-3.5 w-3.5" /> No document uploaded
+                </p>
+              )}
             </div>
 
             <div className="flex items-center gap-2 pt-2">

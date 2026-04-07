@@ -43,4 +43,36 @@ export const updateMe = async (req, res, next) => {
   } catch (err) {
     next(err);
   }
-}
+};
+
+export const uploadGovernmentId = async (req, res, next) => {
+  try {
+    if (!req.file) {
+      return next(new AppError('Please provide an image file', 400));
+    }
+
+    // uploadToCloudinary handles the buffer
+    const { uploadToCloudinary } = await import('../utils/cloudinary.js');
+    const result = await uploadToCloudinary(req.file.buffer, 'travelbuddy_users_ids');
+
+    // Update the user's governmentId field
+    const user = await User.findByIdAndUpdate(
+      req.user._id,
+      { 
+        governmentId: result.secure_url,
+        isVerified: false // Needs re-verification after uploading new ID
+      },
+      { new: true, runValidators: true }
+    );
+
+    res.status(200).json({
+      status: 'success',
+      message: 'Government ID uploaded successfully',
+      data: {
+        user
+      }
+    });
+  } catch (err) {
+    next(err);
+  }
+};

@@ -42,6 +42,9 @@ const userSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
+    governmentId: {
+      type: String,
+    },
   },
   {
     timestamps: true,

@@ -78,7 +78,7 @@ const Auth = () => {
         transition={{ duration: 0.5, ease: 'easeOut' }}
         className="w-full max-w-md"
       >
-        {/* Logo */}23
+        {/* Logo */}
         <div className=" text-center">
           <motion.div
             initial={{ scale: 0.8 }}
