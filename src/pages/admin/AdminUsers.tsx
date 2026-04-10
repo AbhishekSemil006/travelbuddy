@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, ReactNode } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { api } from '@/lib/api';
@@ -50,7 +50,7 @@ const roleBadge: Record<string, string> = {
   user: 'bg-emerald-500/15 text-emerald-500 border-emerald-500/30',
 };
 
-const roleIcon: Record<string, JSX.Element> = {
+const roleIcon: Record<string, ReactNode> = {
   admin: <ShieldCheck className="h-3.5 w-3.5" />,
   moderator: <Shield className="h-3.5 w-3.5" />,
   user: <UserCircle className="h-3.5 w-3.5" />,
