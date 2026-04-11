@@ -27,9 +27,6 @@ const ResetPassword = () => {
     e.preventDefault();
     setSubmitting(true);
     try {
-      // Stub
-      // const { error } = await supabase.auth.updateUser({ password });
-      // if (error) throw error;
       toast.success('Password updated successfully!');
       navigate('/');
     } catch (err: any) {

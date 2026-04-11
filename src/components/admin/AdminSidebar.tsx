@@ -1,4 +1,4 @@
-import { LayoutDashboard, ShieldCheck, Users, ScrollText, ArrowLeft, MapPin } from 'lucide-react';
+import { LayoutDashboard, ShieldCheck, Users, ScrollText, ArrowLeft, MapPin, Flag } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
@@ -20,6 +20,7 @@ const adminNav = [
   { title: 'Verifications', url: '/admin/verifications', icon: ShieldCheck },
   { title: 'Users', url: '/admin/users', icon: Users },
   { title: 'Trips', url: '/admin/trips', icon: MapPin },
+  { title: 'Reports', url: '/admin/reports', icon: Flag },
   { title: 'Audit Trail', url: '/admin/audit', icon: ScrollText },
 ];
 

@@ -23,6 +23,7 @@ import AdminVerifications from "./pages/admin/AdminVerifications";
 import AdminUsers from "./pages/admin/AdminUsers";
 import AdminAudit from "./pages/admin/AdminAudit";
 import AdminTrips from "./pages/admin/AdminTrips";
+import AdminReports from "./pages/admin/AdminReports";
 
 const queryClient = new QueryClient();
 
@@ -65,6 +66,7 @@ const App = () => (
               <Route path="users" element={<AdminUsers />} />
               <Route path="audit" element={<AdminAudit />} />
               <Route path="trips" element={<AdminTrips />} />
+              <Route path="reports" element={<AdminReports />} />
             </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>

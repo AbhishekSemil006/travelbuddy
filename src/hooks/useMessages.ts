@@ -58,6 +58,7 @@ export function useConversations() {
 }
 
 export function useChatMessages(conversationId: string | null) {
+  const { user } = useAuth();
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(false);
   const [otherTyping, setOtherTyping] = useState(false);
@@ -71,7 +72,7 @@ export function useChatMessages(conversationId: string | null) {
       const res = await api.get(`/messages/${conversationId}`);
       if (res.data) {
         setMessages(res.data);
-        // If there are messages, also try to mark them as read
+        // Mark messages as read
         if (res.data.length > 0) {
            api.patch(`/messages/${conversationId}/read`, {}).catch(() => {});
         }
@@ -93,13 +94,13 @@ export function useChatMessages(conversationId: string | null) {
   }, [fetchMessages]);
 
   const sendMessage = async (content: string) => {
-    if (!conversationId) return;
+    if (!conversationId || !user) return;
     try {
-      // Optimistic locally
+      // Optimistic update with ACTUAL user id (not 'me')
       const optimisticMsg: Message = {
-        id: Date.now().toString(),
+        id: `optimistic-${Date.now()}`,
         conversation_id: conversationId,
-        sender_id: 'me', // Will be overridden
+        sender_id: user.id,
         content,
         is_read: false,
         created_at: new Date().toISOString()
@@ -108,7 +109,7 @@ export function useChatMessages(conversationId: string | null) {
 
       const res = await api.post(`/messages/${conversationId}`, { content });
       
-      // Update with real ID once success comes back
+      // Update with real data once success comes back
       setMessages(prev => prev.map(m => m.id === optimisticMsg.id ? res.data : m));
     } catch (error) {
       toast.error('Failed to send message');
@@ -154,4 +155,28 @@ export function useSearchMessages(conversationId: string | null) {
   };
 
   return { results, searching, search };
+}
+
+export function useReportConversation() {
+  const [reporting, setReporting] = useState(false);
+
+  const reportConversation = async (
+    conversationId: string,
+    reason: string,
+    description?: string
+  ) => {
+    setReporting(true);
+    try {
+      await api.post(`/messages/${conversationId}/report`, { reason, description });
+      toast.success('Report submitted. We\'ll review it shortly.');
+      return true;
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to submit report');
+      return false;
+    } finally {
+      setReporting(false);
+    }
+  };
+
+  return { reportConversation, reporting };
 }

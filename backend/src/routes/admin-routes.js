@@ -5,12 +5,14 @@ import {
   toggleUserBlock,
   deleteUser,
   fineUser,
-  toggleUserVerification,
+  verifyUser, 
   getAllTrips,
   getTripDetails,
   updateTrip,
   deleteTrip,
-  getAuditLogs
+  getAuditLogs,
+  getReports,
+  updateReportStatus,
 } from '../controllers/adminController.js';
 
 import { protect, restrictTo } from '../middleware/authMiddleware.js';
@@ -29,13 +31,17 @@ router.get('/users', getAllUsers);
 router.patch('/users/:id/block', toggleUserBlock);
 router.delete('/users/:id', deleteUser);
 router.patch('/users/:id/fine', fineUser);
-router.patch('/users/:id/verify', toggleUserVerification);
+router.patch('/users/:id/verify', verifyUser);
 
 // Trips
 router.get('/trips', getAllTrips);
 router.get('/trips/:id', getTripDetails);
 router.patch('/trips/:id', updateTrip);
 router.delete('/trips/:id', deleteTrip);
+
+// Reports
+router.get('/reports', getReports);
+router.patch('/reports/:id', updateReportStatus);
 
 // Audit Logs
 router.get('/audit', getAuditLogs);

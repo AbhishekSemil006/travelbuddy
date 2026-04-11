@@ -26,8 +26,8 @@ app.use(helmet());
 
 app.use(cors({
   origin: function (origin, callback) {
-    // Allow requests from any localhost port (dev) or no origin (Postman, etc.)
-    if (!origin || /^http:\/\/localhost(:\d+)?$/.test(origin)) {
+    // Allow requests from any localhost/local IP port (dev) or no origin (Postman, etc.)
+    if (!origin || /^http:\/\/(localhost|127\.0\.0\.1|192\.168\.\d+\.\d+)(:\d+)?$/.test(origin)) {
       callback(null, true);
     } else {
       callback(new Error('Not allowed by CORS'));

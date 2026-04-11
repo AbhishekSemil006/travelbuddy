@@ -4,12 +4,13 @@ import { api } from '@/lib/api';
 
 export interface User {
   _id: string;
-  id?: string;
+  id: string;
   email: string;
   fullName?: string;
   avatarUrl?: string;
   role?: string;
   interests?: string[];
+  authProvider?: string;
 }
 
 export interface Session {
@@ -23,11 +24,24 @@ interface AuthContextType {
   loading: boolean;
   signUp: (email: string, password: string, fullName: string) => Promise<{ error: Error | null; needsEmailConfirmation?: boolean }>;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
+  signInWithGoogle: (credential: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<{ error: Error | null }>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+/**
+ * Normalize user object from backend to ensure `id` is always a string.
+ * Backend may return `_id` (MongoDB ObjectId) — we normalize to `id`.
+ */
+const normalizeUser = (userData: any): User => {
+  return {
+    ...userData,
+    _id: userData._id || userData.id,
+    id: (userData.id || userData._id || '').toString(),
+  };
+};
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
@@ -44,8 +58,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           const res = await api.get('/users/me');
 
           if (res?.data?.user) {
-            setUser(res.data.user);
-            setSession({ user: res.data.user, token });
+            const normalized = normalizeUser(res.data.user);
+            setUser(normalized);
+            setSession({ user: normalized, token });
           } else {
             localStorage.removeItem('jwt_token');
           }
@@ -70,8 +85,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (res?.status === 'success' && res?.token && res?.data?.user) {
         localStorage.setItem('jwt_token', res.token);
-        setUser(res.data.user);
-        setSession({ user: res.data.user, token: res.token });
+        const normalized = normalizeUser(res.data.user);
+        setUser(normalized);
+        setSession({ user: normalized, token: res.token });
 
         return { error: null, needsEmailConfirmation: false };
       }
@@ -100,8 +116,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (res?.status === 'success' && res?.token && res?.data?.user) {
         localStorage.setItem('jwt_token', res.token);
-        setUser(res.data.user);
-        setSession({ user: res.data.user, token: res.token });
+        const normalized = normalizeUser(res.data.user);
+        setUser(normalized);
+        setSession({ user: normalized, token: res.token });
 
         return { error: null };
       }
@@ -112,6 +129,35 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     } catch (err: any) {
       console.error('Login error:', err?.message || err);
+
+      return {
+        error: new Error(err?.message || 'Network error')
+      };
+    }
+  };
+
+  // ✅ GOOGLE SIGN IN
+  const signInWithGoogle = async (credential: string) => {
+    try {
+      const res = await api.post('/auth/google', { credential });
+
+      console.log('Google sign-in response:', res);
+
+      if (res?.status === 'success' && res?.token && res?.data?.user) {
+        localStorage.setItem('jwt_token', res.token);
+        const normalized = normalizeUser(res.data.user);
+        setUser(normalized);
+        setSession({ user: normalized, token: res.token });
+
+        return { error: null };
+      }
+
+      return {
+        error: new Error(res?.message || 'Google sign-in failed')
+      };
+
+    } catch (err: any) {
+      console.error('Google sign-in error:', err?.message || err);
 
       return {
         error: new Error(err?.message || 'Network error')
@@ -139,7 +185,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, loading, signUp, signIn, signOut, resetPassword }}>
+    <AuthContext.Provider value={{ user, session, loading, signUp, signIn, signInWithGoogle, signOut, resetPassword }}>
       {children}
     </AuthContext.Provider>
   );

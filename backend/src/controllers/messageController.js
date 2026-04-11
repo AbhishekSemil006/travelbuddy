@@ -2,6 +2,8 @@ import { Conversation } from '../models/conversationModel.js';
 import { Message } from '../models/messageModel.js';
 import { Profile } from '../models/profileModel.js';
 import { Notification } from '../models/notificationModel.js';
+import { Report } from '../models/reportModel.js';
+import { User } from '../models/userModel.js';
 import { AppError } from '../utils/appError.js';
 
 // Helper to get "other user" profile for a conversation
@@ -216,6 +218,138 @@ export const markMessagesRead = async (req, res, next) => {
     );
 
     res.status(200).json({ status: 'success' });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// ── REPORT CONVERSATION ───────────────────────────────────────
+export const reportConversation = async (req, res, next) => {
+  try {
+    const { reason, description } = req.body;
+
+    if (!reason) {
+      return next(new AppError('Report reason is required', 400));
+    }
+
+    const conversation = await Conversation.findById(req.params.conversationId);
+    if (!conversation) return next(new AppError('Conversation not found', 404));
+
+    const isParticipant = conversation.participants.some(
+      (p) => p.toString() === req.user._id.toString()
+    );
+    if (!isParticipant) return next(new AppError('Not authorized', 403));
+
+    // Get the other user
+    const reportedUserId = conversation.participants.find(
+      (p) => p.toString() !== req.user._id.toString()
+    );
+
+    // Check for duplicate pending report
+    const existingReport = await Report.findOne({
+      reporter: req.user._id,
+      conversation: conversation._id,
+      status: 'pending',
+    });
+
+    if (existingReport) {
+      return next(new AppError('You already have a pending report for this conversation', 400));
+    }
+
+    const report = await Report.create({
+      reporter: req.user._id,
+      reportedUser: reportedUserId,
+      conversation: conversation._id,
+      reason,
+      description: description?.trim() || undefined,
+    });
+
+    res.status(201).json({
+      status: 'success',
+      data: {
+        id: report._id.toString(),
+        reason: report.reason,
+        status: report.status,
+        created_at: report.createdAt,
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// ── BLOCK USER ────────────────────────────────────────────────
+export const blockUser = async (req, res, next) => {
+  try {
+    const { userId } = req.params;
+
+    if (userId === req.user._id.toString()) {
+      return next(new AppError('Cannot block yourself', 400));
+    }
+
+    const targetUser = await User.findById(userId);
+    if (!targetUser) return next(new AppError('User not found', 404));
+
+    // Add to blocked list (avoid duplicates)
+    await User.findByIdAndUpdate(
+      req.user._id,
+      { $addToSet: { blockedUsers: userId } },
+      { new: true }
+    );
+
+    res.status(200).json({
+      status: 'success',
+      message: 'User blocked successfully',
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// ── UNBLOCK USER ──────────────────────────────────────────────
+export const unblockUser = async (req, res, next) => {
+  try {
+    const { userId } = req.params;
+
+    await User.findByIdAndUpdate(
+      req.user._id,
+      { $pull: { blockedUsers: userId } },
+      { new: true }
+    );
+
+    res.status(200).json({
+      status: 'success',
+      message: 'User unblocked successfully',
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// ── CHECK BLOCK STATUS ────────────────────────────────────────
+export const getBlockStatus = async (req, res, next) => {
+  try {
+    const { userId } = req.params;
+    const currentUser = await User.findById(req.user._id);
+
+    const iBlockedThem = currentUser.blockedUsers?.some(
+      (id) => id.toString() === userId
+    ) || false;
+
+    // Also check if the other user blocked me
+    const otherUser = await User.findById(userId);
+    const theyBlockedMe = otherUser?.blockedUsers?.some(
+      (id) => id.toString() === req.user._id.toString()
+    ) || false;
+
+    res.status(200).json({
+      status: 'success',
+      data: {
+        iBlockedThem,
+        theyBlockedMe,
+        isBlocked: iBlockedThem || theyBlockedMe,
+      },
+    });
   } catch (err) {
     next(err);
   }

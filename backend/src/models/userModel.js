@@ -17,9 +17,18 @@ const userSchema = new mongoose.Schema(
     },
     password: {
       type: String,
-      required: [true, 'Please provide a password'],
       minlength: 8,
-      select: false, // Don't return password by default
+      select: false,
+    },
+    googleId: {
+      type: String,
+      sparse: true,
+      unique: true,
+    },
+    authProvider: {
+      type: String,
+      enum: ['local', 'google'],
+      default: 'local',
     },
     role: {
       type: String,
@@ -29,6 +38,11 @@ const userSchema = new mongoose.Schema(
     isVerified: {
       type: Boolean,
       default: false,
+    },
+    verificationStatus: {
+      type: String,
+      enum: ['none', 'pending', 'rejected', 'approved'],
+      default: 'none',
     },
     verificationToken: String,
     passwordResetToken: String,
@@ -45,6 +59,12 @@ const userSchema = new mongoose.Schema(
     governmentId: {
       type: String,
     },
+    blockedUsers: [
+      {
+        type: mongoose.Schema.ObjectId,
+        ref: 'User',
+      },
+    ],
   },
   {
     timestamps: true,
@@ -53,12 +73,13 @@ const userSchema = new mongoose.Schema(
 
 // Hash the password before saving
 
-userSchema.pre('save', async function (next) {
-  if (!this.isModified('password')) return next();
+userSchema.pre('save', async function () {
+  if (!this.isModified('password')) return;
 
   this.password = await bcrypt.hash(this.password, 12);
   
 });
+
 // Instance method to check if password is correct
 userSchema.methods.correctPassword = async function (
   candidatePassword,

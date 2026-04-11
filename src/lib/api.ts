@@ -1,4 +1,4 @@
-const API_BASE_URL = 'http://localhost:8081/api/v1';
+const API_BASE_URL = `http://${window.location.hostname}:8081/api/v1`;
 
 const getHeaders = () => {
   const token = localStorage.getItem('jwt_token');
@@ -15,27 +15,27 @@ export const api = {
     return res.json();
   },
   post: async (endpoint: string, body: unknown) => {
-  try {
-    const res = await fetch(`${API_BASE_URL}${endpoint}`, {
-      method: 'POST',
-      headers: getHeaders(),
-      body: JSON.stringify(body),
-    });
+    try {
+      const res = await fetch(`${API_BASE_URL}${endpoint}`, {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify(body),
+      });
 
-    const data = await res.json().catch(() => ({}));
+      const data = await res.json().catch(() => ({}));
 
-    if (!res.ok) {
-      console.error('🔥 Backend Response:', data);
-      throw new Error(data.message || `API POST error: ${res.status}`);
+      if (!res.ok) {
+        console.error('🔥 Backend Response:', data);
+        throw new Error(data.message || `API POST error: ${res.status}`);
+      }
+
+      return data;
+
+    } catch (err) {
+      console.error('🚨 FETCH ERROR:', err);
+      throw err;
     }
-
-    return data;
-
-  } catch (err) {
-    console.error('🚨 FETCH ERROR:', err);
-    throw err;
-  }
-},
+  },
   postForm: async (endpoint: string, formData: FormData) => {
     try {
       const headers = getHeaders();

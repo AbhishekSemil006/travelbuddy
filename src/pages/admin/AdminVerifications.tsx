@@ -3,7 +3,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { api } from '@/lib/api';
 import { motion } from 'framer-motion';
-import { ShieldAlert, CheckCircle, Trash2, Loader2, UserCircle, Clock } from 'lucide-react';
+import { ShieldAlert, CheckCircle, XCircle, Loader2, UserCircle, Clock } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 
@@ -12,6 +12,7 @@ interface UserData {
   name: string;
   email: string;
   isVerified: boolean;
+  verificationStatus?: string;
   createdAt: string;
   governmentId?: string;
 }
@@ -25,8 +26,10 @@ const AdminVerifications = () => {
   const fetchUsers = async () => {
     try {
       const res = await api.get('/admin/users');
-      // Filter only unverified users
-      const pending = (res.data || []).filter((u: UserData) => !u.isVerified);
+      // Show users who have a governmentId uploaded and are pending verification
+      const pending = (res.data || []).filter(
+        (u: UserData) => u.governmentId && !u.isVerified && u.verificationStatus !== 'rejected'
+      );
       setUsers(pending);
     } catch (err) {
       console.error('Failed to fetch verification queue:', err);
@@ -55,11 +58,11 @@ const AdminVerifications = () => {
 
   const handleReject = async (id: string) => {
     try {
-      await api.delete(`/admin/users/${id}`);
-      toast.success('User rejected and removed');
+      await api.patch(`/admin/users/${id}/reject`, {});
+      toast.success('Verification rejected — user can re-submit');
       setUsers((prev) => prev.filter((u) => u._id !== id));
     } catch (err: unknown) {
-      toast.error((err as Error).message || 'Failed to reject user');
+      toast.error((err as Error).message || 'Failed to reject verification');
     }
   };
 
@@ -130,9 +133,9 @@ const AdminVerifications = () => {
                 variant="outline" 
                 onClick={() => handleReject(u._id)} 
                 className="flex-none px-3 text-destructive border-destructive/20 hover:bg-destructive/10"
-                title="Reject & Delete"
+                title="Reject verification"
               >
-                <Trash2 className="h-4 w-4" />
+                <XCircle className="h-4 w-4" />
               </Button>
             </div>
           </motion.div>

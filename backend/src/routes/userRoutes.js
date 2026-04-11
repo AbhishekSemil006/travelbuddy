@@ -1,6 +1,6 @@
 import express from 'express';
 import multer from 'multer';
-import { getMe, updateMe, uploadGovernmentId } from '../controllers/userController.js';
+import { getMe, updateMe, uploadGovernmentId, uploadAvatar } from '../controllers/userController.js';
 import { protect } from '../middleware/authMiddleware.js';
 
 export const userRouter = express.Router();
@@ -13,6 +13,9 @@ userRouter.use(protect);
 
 userRouter.get('/me', getMe);
 userRouter.patch('/me', updateMe);
+
+// Route for uploading profile avatar
+userRouter.post('/me/upload-avatar', upload.single('file'), uploadAvatar);
 
 // Route for uploading government ID
 userRouter.post('/me/upload-id', upload.single('file'), uploadGovernmentId);

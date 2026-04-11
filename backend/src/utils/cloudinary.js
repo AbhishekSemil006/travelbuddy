@@ -1,12 +1,17 @@
 import { v2 as cloudinary } from 'cloudinary';
 import { AppError } from './appError.js';
 
-// Configure cloudinary with dummy fallbacks if environment variables aren't set yet
-cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME || 'test_cloud_name',
-  api_key: process.env.CLOUDINARY_API_KEY || 'test_api_key',
-  api_secret: process.env.CLOUDINARY_API_SECRET || 'test_api_secret',
-});
+/**
+ * Ensure Cloudinary is configured with the latest env vars.
+ * Called lazily (at upload time) so that dotenv has already loaded.
+ */
+const ensureConfigured = () => {
+  cloudinary.config({
+    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+    api_key: process.env.CLOUDINARY_API_KEY,
+    api_secret: process.env.CLOUDINARY_API_SECRET,
+  });
+};
 
 /**
  * Uploads a file buffer to Cloudinary and returns the result
@@ -16,14 +21,15 @@ cloudinary.config({
  */
 export const uploadToCloudinary = (buffer, folder = 'travelbuddy_ids') => {
   return new Promise((resolve, reject) => {
-    // If we're missing the env vars, we might want to return a dummy URL for local testing
-    // Or throw an error telling the user they forgot to add credentials.
-    if (!process.env.CLOUDINARY_CLOUD_NAME || process.env.CLOUDINARY_CLOUD_NAME === 'test_cloud_name') {
+    if (!process.env.CLOUDINARY_CLOUD_NAME || !process.env.CLOUDINARY_API_KEY || !process.env.CLOUDINARY_API_SECRET) {
       console.warn('WARNING: Missing Cloudinary credentials. Returning dummy image URL for local testing.');
       return resolve({
         secure_url: 'https://res.cloudinary.com/demo/image/upload/v1312461204/sample.jpg'
       });
     }
+
+    // Configure with real credentials right before uploading
+    ensureConfigured();
 
     const uploadStream = cloudinary.uploader.upload_stream(
       { folder },

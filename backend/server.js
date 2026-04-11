@@ -1,8 +1,14 @@
-import mongoose from 'mongoose';
 import dotenv from 'dotenv';
-import { app } from './src/app.js';
+dotenv.config(); // Must be BEFORE other imports so env vars are available during module init
 
-dotenv.config();
+import mongoose from 'mongoose';
+import { app } from './src/app.js';
+import cors from "cors";
+
+app.use(cors({
+  origin: "http://localhost:8080", // your frontend port
+  credentials: true
+}));
 
 process.on('uncaughtException', (err) => {
   console.log('UNCAUGHT EXCEPTION! 💥 Shutting down...');

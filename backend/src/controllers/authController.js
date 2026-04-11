@@ -1,4 +1,5 @@
 import jwt from 'jsonwebtoken';
+import axios from 'axios';
 import { User } from '../models/userModel.js';
 import { Profile } from '../models/profileModel.js';
 import { AppError } from '../utils/appError.js';
@@ -47,16 +48,19 @@ const createSendToken = async (user, statusCode, req, res) => {
     data: {
       user: {
         _id: user._id,
+        id: user._id.toString(),
         email: user.email,
-        fullName: profile?.displayName || 'User',
+        fullName: profile?.displayName || user.name || 'User',
+        avatarUrl: profile?.avatarUrl || null,
         role: user.role || 'user',
+        authProvider: user.authProvider || 'local',
       },
     },
   });
 };
-// =======================
-// ✅ REGISTER
-// =======================
+
+// REGISTER
+
 export const register = async (req, res, next) => {
   try {
     console.log('BODY:', req.body);
@@ -76,7 +80,7 @@ export const register = async (req, res, next) => {
       name: fullName,
       email,
       password,
-      isVerified: true,
+      authProvider: 'local',
     });
 
     await Profile.create({
@@ -91,9 +95,9 @@ export const register = async (req, res, next) => {
   }
 };
 
-// =======================
-// ✅ LOGIN
-// =======================
+
+//  LOGIN
+
 export const login = async (req, res, next) => {
   try {
     const { email, password } = req.body;
@@ -106,7 +110,7 @@ export const login = async (req, res, next) => {
 
     const user = await User.findOne({ email }).select('+password');
 
-    if (!user || !(await user.correctPassword(password, user.password))) {
+    if (!user || !user.password || !(await user.correctPassword(password, user.password))) {
       return next(new AppError('Incorrect email or password', 401));
     }
 
@@ -116,6 +120,75 @@ export const login = async (req, res, next) => {
   }
 
   console.log('BODY:', req.body);
+};
+
+// =======================
+// ✅ GOOGLE SIGN-IN
+// =======================
+export const googleSignIn = async (req, res, next) => {
+  try {
+    const { credential } = req.body;
+
+    if (!credential) {
+      return next(new AppError('Google credential is required', 400));
+    }
+
+    // Verify the Google ID token
+    const googleRes = await axios.get(
+      `https://oauth2.googleapis.com/tokeninfo?id_token=${credential}`
+    );
+
+    const { sub: googleId, email, name, picture } = googleRes.data;
+
+    if (!email) {
+      return next(new AppError('Failed to get email from Google', 400));
+    }
+
+    // Check if user exists by googleId or email
+    let user = await User.findOne({
+      $or: [{ googleId }, { email }],
+    });
+
+    if (user) {
+      // Link Google account if user exists with email but no googleId
+      if (!user.googleId) {
+        user.googleId = googleId;
+        user.authProvider = 'google';
+        await user.save({ validateBeforeSave: false });
+      }
+
+      // Update avatar if not set
+      const profile = await Profile.findOne({ user: user._id });
+      if (profile && !profile.avatarUrl && picture) {
+        profile.avatarUrl = picture;
+        await profile.save();
+      }
+    } else {
+      // Create new user
+      user = await User.create({
+        name: name || email.split('@')[0],
+        email,
+        googleId,
+        authProvider: 'google',
+      });
+
+      await Profile.create({
+        user: user._id,
+        displayName: name || email.split('@')[0],
+        avatarUrl: picture || null,
+      });
+    }
+
+    createSendToken(user, 200, req, res);
+  } catch (err) {
+    console.error('GOOGLE SIGN-IN ERROR:', err?.response?.data || err.message);
+
+    if (err?.response?.status === 400) {
+      return next(new AppError('Invalid Google credential', 401));
+    }
+
+    next(err);
+  }
 };
 
 // =======================

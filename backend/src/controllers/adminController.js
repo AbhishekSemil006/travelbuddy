@@ -1,6 +1,10 @@
 import { User } from '../models/userModel.js';
 import { Trip } from '../models/tripModel.js';
 import { Profile } from '../models/profileModel.js';
+import { Report } from '../models/reportModel.js';
+import { AppError } from '../utils/appError.js';
+import mongoose from "mongoose";
+
 
 // Dashboard stats
 export const getDashboardStats = async (req, res) => {
@@ -87,12 +91,62 @@ export const toggleUserVerification = async (req, res) => {
     const user = await User.findById(req.params.id);
     if (!user) return res.status(404).json({ message: 'User not found' });
 
-    user.isVerified = !user.isVerified;
+    // If currently verified, unverify. Otherwise, approve.
+    if (user.isVerified) {
+      user.isVerified = false;
+      user.verificationStatus = 'none';
+    } else {
+      user.isVerified = true;
+      user.verificationStatus = 'approved';
+    }
     await user.save({ validateBeforeSave: false });
 
     res.json({ success: true, message: `User ${user.isVerified ? 'verified' : 'unverified'}`, user });
   } catch (err) {
     res.status(500).json({ message: err.message });
+  }
+};
+
+// export const rejectVerification = async (req, res) => {
+//   try {
+//     const user = await User.findById(req.params.id);
+//     if (!user) return res.status(404).json({ message: 'User not found' });
+
+//     user.isVerified = false;
+//     user.verificationStatus = 'rejected';
+//     user.governmentId = undefined; // Clear the rejected document
+//     await user.save({ validateBeforeSave: false });
+
+//     res.json({ success: true, message: 'Verification rejected', user });
+//   } catch (err) {
+//     res.status(500).json({ message: err.message });
+//   }
+// };
+
+
+export const verifyUser = async (req, res, next) => {
+  try {
+    const user = await User.findById(req.params.id);
+
+    if (!user) {
+      return next(new AppError("User not found", 404));
+    }
+
+    user.isVerified = true;
+    user.verificationStatus = "approved";
+
+    // ✅ FIX HERE
+    await user.save({ validateBeforeSave: false });
+
+    res.status(200).json({
+      status: "success",
+      message: "User verified successfully",
+      data: { user },
+    });
+
+  } catch (err) {
+    console.error("VERIFY ERROR:", err);
+    next(err);
   }
 };
 
@@ -172,4 +226,77 @@ export const getAuditLogs = async (req, res) => {
     success: true,
     data: logs
   });
+};
+
+// ── REPORT MANAGEMENT ─────────────────────────────────────────
+export const getReports = async (req, res, next) => {
+  try {
+    const { status } = req.query;
+    const filter = status ? { status } : {};
+
+    const reports = await Report.find(filter)
+      .sort('-createdAt')
+      .populate('reporter', 'name email')
+      .populate('reportedUser', 'name email')
+      .lean();
+
+    const enriched = await Promise.all(
+      reports.map(async (r) => {
+        const reporterProfile = await Profile.findOne({ user: r.reporter._id }).lean();
+        const reportedProfile = await Profile.findOne({ user: r.reportedUser._id }).lean();
+
+        return {
+          id: r._id.toString(),
+          reporter: {
+            id: r.reporter._id.toString(),
+            name: reporterProfile?.displayName || r.reporter.name,
+            email: r.reporter.email,
+          },
+          reportedUser: {
+            id: r.reportedUser._id.toString(),
+            name: reportedProfile?.displayName || r.reportedUser.name,
+            email: r.reportedUser.email,
+          },
+          reason: r.reason,
+          description: r.description,
+          status: r.status,
+          adminNotes: r.adminNotes,
+          created_at: r.createdAt,
+        };
+      })
+    );
+
+    res.status(200).json({ success: true, data: enriched });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const updateReportStatus = async (req, res, next) => {
+  try {
+    const { status, adminNotes } = req.body;
+
+    if (!status || !['reviewed', 'dismissed', 'actioned'].includes(status)) {
+      return next(new AppError('Valid status required (reviewed, dismissed, actioned)', 400));
+    }
+
+    const report = await Report.findByIdAndUpdate(
+      req.params.id,
+      { status, adminNotes: adminNotes || undefined },
+      { new: true, runValidators: true }
+    );
+
+    if (!report) return next(new AppError('Report not found', 404));
+
+    res.status(200).json({
+      success: true,
+      data: {
+        id: report._id.toString(),
+        status: report.status,
+        adminNotes: report.adminNotes,
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
 };
