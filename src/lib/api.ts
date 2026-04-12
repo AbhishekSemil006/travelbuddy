@@ -1,4 +1,4 @@
-const API_BASE_URL = `https://travelbuddy-backend-two.vercel.app/8081/api/v1`;
+const API_BASE_URL = `https://travelbuddy-backend-two.vercel.app/api/v1`;
 
 const getHeaders = () => {
   const token = localStorage.getItem('jwt_token');
