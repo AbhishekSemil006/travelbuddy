@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
@@ -24,9 +24,40 @@ const Auth = () => {
   const [googleLoading, setGoogleLoading] = useState(false);
   const googleBtnRef = useRef<HTMLDivElement>(null);
 
+  // Use a ref to always hold the latest callback so Google's GSI never calls a stale closure
+  const googleCallbackRef = useRef<(response: any) => void>();
+
+  const handleGoogleCallback = useCallback(async (response: any) => {
+    if (!response.credential) {
+      toast.error('Google sign-in failed — no credential received');
+      return;
+    }
+    setGoogleLoading(true);
+    try {
+      const { error } = await signInWithGoogle(response.credential);
+      if (error) throw error;
+      toast.success('Welcome! Signed in with Google 🎉');
+      navigate('/', { replace: true });
+    } catch (err: any) {
+      toast.error(err.message || 'Google sign-in failed');
+    } finally {
+      setGoogleLoading(false);
+    }
+  }, [signInWithGoogle, navigate]);
+
+  // Keep the ref in sync with the latest callback
+  useEffect(() => {
+    googleCallbackRef.current = handleGoogleCallback;
+  }, [handleGoogleCallback]);
+
   // Load Google Identity Services script
   useEffect(() => {
     if (!GOOGLE_CLIENT_ID) return;
+
+    // Stable wrapper that delegates to the latest callback via ref
+    const stableCallback = (response: any) => {
+      googleCallbackRef.current?.(response);
+    };
 
     const loadGoogleScript = () => {
       if (document.getElementById('google-gsi-script')) return;
@@ -43,10 +74,12 @@ const Auth = () => {
       if (!(window as any).google?.accounts?.id) return;
       (window as any).google.accounts.id.initialize({
         client_id: GOOGLE_CLIENT_ID,
-        callback: handleGoogleCallback,
+        callback: stableCallback,
         auto_select: false,
       });
       if (googleBtnRef.current) {
+        // Clear previous rendered button
+        googleBtnRef.current.innerHTML = '';
         (window as any).google.accounts.id.renderButton(googleBtnRef.current, {
           type: 'standard',
           theme: 'outline',
@@ -65,24 +98,6 @@ const Auth = () => {
       loadGoogleScript();
     }
   }, [mode]);
-
-  const handleGoogleCallback = async (response: any) => {
-    if (!response.credential) {
-      toast.error('Google sign-in failed — no credential received');
-      return;
-    }
-    setGoogleLoading(true);
-    try {
-      const { error } = await signInWithGoogle(response.credential);
-      if (error) throw error;
-      toast.success('Welcome! Signed in with Google 🎉');
-      navigate('/', { replace: true });
-    } catch (err: any) {
-      toast.error(err.message || 'Google sign-in failed');
-    } finally {
-      setGoogleLoading(false);
-    }
-  };
 
   if (loading) {
     return (
