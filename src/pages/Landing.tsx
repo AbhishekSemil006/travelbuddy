@@ -3,10 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import {
   Shield, Users, MapPin, MessageCircle, ArrowRight,
   Sparkles, Globe, Heart, Mail, Plane, Star, ChevronRight,
-  CheckCircle,
+  CheckCircle, Share2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
+import { useToast } from '@/hooks/use-toast';
 
 const features = [
   {
@@ -57,12 +58,38 @@ const testimonials = [
   { name: 'Aiko T.', text: 'Female-only mode made me feel so comfortable exploring solo for the first time.', avatar: '👩' },
 ];
 
+const SHARE_URL = 'https://travelbuddy-sandy.vercel.app/landing';
+const SHARE_TEXT = 'Check out TravelBuddy — find your perfect travel companion! 🌍✈️';
+
 const Landing = () => {
   const navigate = useNavigate();
   const heroRef = useRef(null);
+  const { toast } = useToast();
   const { scrollYProgress } = useScroll({ target: heroRef, offset: ['start start', 'end start'] });
   const heroY = useTransform(scrollYProgress, [0, 1], ['0%', '30%']);
   const heroOpacity = useTransform(scrollYProgress, [0, 0.8], [1, 0]);
+
+  const handleShare = async () => {
+    const shareData = {
+      title: 'TravelBuddy',
+      text: SHARE_TEXT,
+      url: SHARE_URL,
+    };
+
+    try {
+      if (navigator.share && navigator.canShare?.(shareData)) {
+        await navigator.share(shareData);
+      } else {
+        await navigator.clipboard.writeText(`${SHARE_TEXT}\n${SHARE_URL}`);
+        toast({ title: 'Link copied!', description: 'Share it with your friends 🎉' });
+      }
+    } catch (err: any) {
+      if (err?.name !== 'AbortError') {
+        await navigator.clipboard.writeText(`${SHARE_TEXT}\n${SHARE_URL}`);
+        toast({ title: 'Link copied!', description: 'Share it with your friends 🎉' });
+      }
+    }
+  };
 
   return (
     <div className="min-h-screen bg-background overflow-x-hidden">
@@ -76,6 +103,9 @@ const Landing = () => {
             </span>
           </div>
           <div className="flex items-center gap-2">
+            <Button variant="ghost" size="sm" onClick={handleShare} className="font-medium gap-1.5">
+              <Share2 className="h-4 w-4" /> Share
+            </Button>
             <Button variant="ghost" size="sm" onClick={() => navigate('/auth')} className="font-medium">
               Log in
             </Button>
