@@ -9,6 +9,10 @@ app.use(cors({
   origin: "http://localhost:8080", // your frontend port
   credentials: true
 }));
+app.use(cors({
+  origin: "https://travelbuddy-sandy.vercel.app", // your frontend port
+  credentials: true
+}));
 
 process.on('uncaughtException', (err) => {
   console.log('UNCAUGHT EXCEPTION! 💥 Shutting down...');
