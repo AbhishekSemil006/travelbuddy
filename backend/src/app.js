@@ -24,10 +24,20 @@ export const app = express(); // ✅ FIRST create app
 
 app.use(helmet());
 
+const allowedOrigins = [
+  /^http:\/\/(localhost|127\.0\.0\.1|192\.168\.\d+\.\d+)(:\d+)?$/,
+  'https://travelbuddy-sandy.vercel.app'
+];
+
 app.use(cors({
   origin: function (origin, callback) {
-    // Allow requests from any localhost/local IP port (dev) or no origin (Postman, etc.)
-    if (!origin || /^http:\/\/(localhost|127\.0\.0\.1|192\.168\.\d+\.\d+)(:\d+)?$/.test(origin)) {
+    // Allow requests with no origin (Postman, server-to-server, etc.)
+    if (!origin) return callback(null, true);
+    // Check against allowed origins (regex for dev, exact string for production)
+    const isAllowed = allowedOrigins.some(o =>
+      typeof o === 'string' ? o === origin : o.test(origin)
+    );
+    if (isAllowed) {
       callback(null, true);
     } else {
       callback(new Error('Not allowed by CORS'));
@@ -35,7 +45,16 @@ app.use(cors({
   },
   credentials: true
 }));
-app.options(/(.*)/, cors());
+app.options(/(.*)/, cors({
+  origin: function (origin, callback) {
+    if (!origin) return callback(null, true);
+    const isAllowed = allowedOrigins.some(o =>
+      typeof o === 'string' ? o === origin : o.test(origin)
+    );
+    callback(null, isAllowed);
+  },
+  credentials: true
+}));
 
 if (process.env.NODE_ENV === 'development') {
   app.use(morgan('dev'));

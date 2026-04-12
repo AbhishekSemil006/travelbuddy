@@ -3,16 +3,6 @@ dotenv.config(); // Must be BEFORE other imports so env vars are available durin
 
 import mongoose from 'mongoose';
 import { app } from './src/app.js';
-import cors from "cors";
-
-app.use(cors({
-  origin: "http://localhost:8080", // your frontend port
-  credentials: true
-}));
-app.use(cors({
-  origin: "https://travelbuddy-sandy.vercel.app", // your frontend port
-  credentials: true
-}));
 
 process.on('uncaughtException', (err) => {
   console.log('UNCAUGHT EXCEPTION! 💥 Shutting down...');
@@ -39,11 +29,6 @@ process.on('unhandledRejection', (err) => {
   });
 });
 
-app.use((err, req, res, next) => {
-  console.error("Global error handler:", err);
-  res.status(err.statusCode || 500).json({
-    status: 'error',
-    message: err.message || 'Internal Server Error'
-  });
-});
+// Export app for Vercel serverless
+export default app;
 
