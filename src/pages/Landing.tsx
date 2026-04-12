@@ -103,9 +103,6 @@ const Landing = () => {
             </span>
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="ghost" size="sm" onClick={handleShare} className="font-medium gap-1.5">
-              <Share2 className="h-4 w-4" /> Share
-            </Button>
             <Button variant="ghost" size="sm" onClick={() => navigate('/auth')} className="font-medium">
               Log in
             </Button>
