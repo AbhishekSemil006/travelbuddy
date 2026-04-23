@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
-import { Mail, Lock, User, ArrowRight, Loader2, Plane, Globe, Shield } from 'lucide-react';
+import { Mail, Lock, User, ArrowRight, Loader2, Plane, Globe, Shield, Phone } from 'lucide-react';
 
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || '';
 
@@ -20,6 +20,7 @@ const Auth = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
+  const [mobileNo, setMobileNo] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const googleBtnRef = useRef<HTMLDivElement>(null);
@@ -119,7 +120,7 @@ const Auth = () => {
         toast.success('Password reset email sent! Check your inbox.');
         setMode('login');
       } else if (mode === 'signup') {
-        const result = await signUp(email, password, fullName);
+        const result = await signUp(email, password, fullName, mobileNo || undefined);
         if (result.error) throw result.error;
         if (result.needsEmailConfirmation) {
           toast.success('Account created! Check your email to verify.');
@@ -294,6 +295,23 @@ const Auth = () => {
                         onChange={(e) => setFullName(e.target.value)}
                         className="pl-9 rounded-xl h-11 border-border/60 focus-visible:ring-primary/30"
                         required
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {mode === 'signup' && (
+                  <div className="space-y-1.5">
+                    <Label htmlFor="mobileNo" className="text-xs font-semibold">Mobile Number</Label>
+                    <div className="relative">
+                      <Phone className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                      <Input
+                        id="mobileNo"
+                        type="tel"
+                        placeholder="+91 9876543210"
+                        value={mobileNo}
+                        onChange={(e) => setMobileNo(e.target.value)}
+                        className="pl-9 rounded-xl h-11 border-border/60 focus-visible:ring-primary/30"
                       />
                     </div>
                   </div>

@@ -6,6 +6,7 @@ export interface User {
   _id: string;
   id: string;
   email: string;
+  mobileNo?: string;
   fullName?: string;
   avatarUrl?: string;
   role?: string;
@@ -22,7 +23,7 @@ interface AuthContextType {
   user: User | null;
   session: Session | null;
   loading: boolean;
-  signUp: (email: string, password: string, fullName: string) => Promise<{ error: Error | null; needsEmailConfirmation?: boolean }>;
+  signUp: (email: string, password: string, fullName: string, mobileNo?: string) => Promise<{ error: Error | null; needsEmailConfirmation?: boolean }>;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signInWithGoogle: (credential: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
@@ -77,9 +78,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   // ✅ SIGN UP
-  const signUp = async (email: string, password: string, fullName: string) => {
+  const signUp = async (email: string, password: string, fullName: string, mobileNo?: string) => {
     try {
-      const res = await api.post('/auth/register', { email, password, fullName });
+      const res = await api.post('/auth/register', { email, password, fullName, mobileNo });
 
       console.log('Signup response:', res);
 

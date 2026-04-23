@@ -50,6 +50,7 @@ const createSendToken = async (user, statusCode, req, res) => {
         _id: user._id,
         id: user._id.toString(),
         email: user.email,
+        mobileNo: user.mobileNo || '',
         fullName: profile?.displayName || user.name || 'User',
         avatarUrl: profile?.avatarUrl || null,
         role: user.role || 'user',
@@ -65,7 +66,7 @@ export const register = async (req, res, next) => {
   try {
     console.log('BODY:', req.body);
 
-    const { email, password, fullName } = req.body;
+    const { email, password, fullName, mobileNo } = req.body;
 
     if (!email || !password || !fullName) {
       return next(new AppError('All fields are required', 400));
@@ -80,6 +81,7 @@ export const register = async (req, res, next) => {
       name: fullName,
       email,
       password,
+      mobileNo: mobileNo || undefined,
       authProvider: 'local',
     });
 

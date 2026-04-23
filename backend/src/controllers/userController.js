@@ -30,6 +30,7 @@ export const getMe = async (req, res, next) => {
       _id: req.user._id,
       id: req.user._id.toString(),
       email: req.user.email,
+      mobileNo: req.user.mobileNo || '',
       fullName: profile?.displayName || req.user.name || 'User',
       avatarUrl: profile?.avatarUrl || null,
       role: req.user.role || 'user',
