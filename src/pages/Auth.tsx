@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { Mail, Lock, User, ArrowRight, Loader2, Plane, Globe, Shield, Phone } from 'lucide-react';
 
-const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || '';
+const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || '688702959118-75vemdmvec7no7trl0tctm14ju2da6tq.apps.googleusercontent.com';
 
 type AuthMode = 'login' | 'signup' | 'forgot';
 
@@ -37,7 +37,7 @@ const Auth = () => {
     try {
       const { error } = await signInWithGoogle(response.credential);
       if (error) throw error;
-      toast.success('Welcome! Signed in with Google 🎉');
+      toast.success('Signed in with Google — enjoy your journey!');
       navigate('/', { replace: true });
     } catch (err: any) {
       toast.error(err.message || 'Google sign-in failed');
@@ -123,16 +123,16 @@ const Auth = () => {
         const result = await signUp(email, password, fullName, mobileNo || undefined);
         if (result.error) throw result.error;
         if (result.needsEmailConfirmation) {
-          toast.success('Account created! Check your email to verify.');
+          toast.success('Almost there! Check your email to verify your account.');
           setMode('login');
         } else {
-          toast.success('Account created! Welcome aboard 🎉');
+          toast.success('You\'re all set — welcome to TravelBuddy!');
           navigate('/', { replace: true });
         }
       } else {
         const { error } = await signIn(email, password);
         if (error) throw error;
-        toast.success('Welcome back!');
+        toast.success('Hey, good to see you again!');
         navigate('/', { replace: true });
       }
     } catch (err: any) {

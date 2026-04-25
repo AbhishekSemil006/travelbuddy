@@ -1,6 +1,7 @@
 import jwt from 'jsonwebtoken';
 import { User } from '../models/userModel.js';
 import { AppError } from '../utils/appError.js';
+import { isValidObjectId } from '../utils/sanitize.js';
 
 export const protect = async (req, res, next) => {
   try {
@@ -19,10 +20,20 @@ export const protect = async (req, res, next) => {
       );
     }
 
-    // 2) Verification token
+    // 2) Validate token format before verification
+    if (token.length < 20 || token.length > 1000) {
+      return next(new AppError('Invalid token format.', 401));
+    }
+
+    // 3) Verification token
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-    // 3) Check if user still exists
+    // 4) Validate decoded ID is a valid ObjectId
+    if (!decoded.id || !isValidObjectId(decoded.id)) {
+      return next(new AppError('Invalid token payload.', 401));
+    }
+
+    // 5) Check if user still exists
     const currentUser = await User.findById(decoded.id);
     if (!currentUser) {
       return next(
@@ -33,8 +44,22 @@ export const protect = async (req, res, next) => {
       );
     }
 
+    // 6) Check if user is blocked
     if (currentUser.status === 'blocked') {
       return next(new AppError('Your account has been blocked by an administrator.', 403));
+    }
+
+    // 7) Check if user changed password after the token was issued
+    if (currentUser.passwordChangedAt) {
+      const changedTimestamp = parseInt(
+        currentUser.passwordChangedAt.getTime() / 1000,
+        10
+      );
+      if (decoded.iat < changedTimestamp) {
+        return next(
+          new AppError('User recently changed password! Please log in again.', 401)
+        );
+      }
     }
 
     // GRANT ACCESS TO PROTECTED ROUTE

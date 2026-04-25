@@ -21,6 +21,23 @@ const filterObj = (obj, allowedFields) => {
   return newObj;
 };
 
+// Allowed MIME types for image uploads
+const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+
+/**
+ * Validate uploaded file type and size
+ */
+const validateImageFile = (file) => {
+  if (!ALLOWED_IMAGE_TYPES.includes(file.mimetype)) {
+    return 'Invalid file type. Only JPEG, PNG, WebP, and GIF are allowed.';
+  }
+  if (file.size > MAX_FILE_SIZE) {
+    return 'File too large. Maximum size is 5MB.';
+  }
+  return null;
+};
+
 export const getMe = async (req, res, next) => {
   try {
     const profile = await Profile.findOne({ user: req.user._id });
@@ -49,9 +66,10 @@ export const getMe = async (req, res, next) => {
   }
 };
 
+// Validation handled by route middleware (profileUpdateSchema)
 export const updateMe = async (req, res, next) => {
   try {
-    // Filter to only allowed profile fields
+    // Filter to only allowed profile fields (defense in depth — Zod already strips unknowns)
     const filteredBody = filterObj(req.body, ALLOWED_PROFILE_FIELDS);
 
     // Upsert — creates the profile if it doesn't exist yet (new user)
@@ -83,6 +101,12 @@ export const uploadGovernmentId = async (req, res, next) => {
       return next(new AppError('Please provide an image file', 400));
     }
 
+    // Validate file type and size
+    const fileError = validateImageFile(req.file);
+    if (fileError) {
+      return next(new AppError(fileError, 400));
+    }
+
     // uploadToCloudinary handles the buffer
     const { uploadToCloudinary } = await import('../utils/cloudinary.js');
     const result = await uploadToCloudinary(req.file.buffer, 'travelbuddy_users_ids');
@@ -102,7 +126,10 @@ export const uploadGovernmentId = async (req, res, next) => {
       status: 'success',
       message: 'Government ID uploaded successfully',
       data: {
-        user
+        user: {
+          _id: user._id,
+          verificationStatus: user.verificationStatus,
+        }
       }
     });
   } catch (err) {
@@ -114,6 +141,12 @@ export const uploadAvatar = async (req, res, next) => {
   try {
     if (!req.file) {
       return next(new AppError('Please provide an image file', 400));
+    }
+
+    // Validate file type and size
+    const fileError = validateImageFile(req.file);
+    if (fileError) {
+      return next(new AppError(fileError, 400));
     }
 
     const { uploadToCloudinary } = await import('../utils/cloudinary.js');

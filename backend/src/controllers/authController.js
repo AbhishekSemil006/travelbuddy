@@ -3,6 +3,7 @@ import axios from 'axios';
 import { User } from '../models/userModel.js';
 import { Profile } from '../models/profileModel.js';
 import { AppError } from '../utils/appError.js';
+import { sanitizeString } from '../utils/sanitize.js';
 
 // 🔐 Sign Token
 const signToken = (id, type = 'access') => {
@@ -30,16 +31,16 @@ const createSendToken = async (user, statusCode, req, res) => {
         process.env.JWT_REFRESH_COOKIE_EXPIRES_IN * 24 * 60 * 60 * 1000
     ),
     httpOnly: true,
-    secure:
-      req.secure || req.headers['x-forwarded-proto'] === 'https',
-    sameSite: 'strict',
+    secure: true,
+    sameSite: 'none',
   };
 
   res.cookie('jwt_refresh', refreshToken, cookieOptions);
 
-  // ✅ Get profile (IMPORTANT FIX)
+  // Get profile
   const profile = await Profile.findOne({ user: user._id });
 
+  // Never send password
   user.password = undefined;
 
   res.status(statusCode).json({
@@ -60,25 +61,24 @@ const createSendToken = async (user, statusCode, req, res) => {
   });
 };
 
-// REGISTER
-
+// ══════════════════════════════════════════════════════════════
+// REGISTER — Validation handled by route middleware (registerSchema)
+// ══════════════════════════════════════════════════════════════
 export const register = async (req, res, next) => {
   try {
-    console.log('BODY:', req.body);
-
     const { email, password, fullName, mobileNo } = req.body;
 
-    if (!email || !password || !fullName) {
-      return next(new AppError('All fields are required', 400));
-    }
-
+    // Check for existing user
     const existingUser = await User.findOne({ email });
     if (existingUser) {
       return next(new AppError('User already exists', 400));
     }
 
+    // Sanitize display name
+    const safeName = sanitizeString(fullName, 50);
+
     const newUser = await User.create({
-      name: fullName,
+      name: safeName,
       email,
       password,
       mobileNo: mobileNo || undefined,
@@ -87,28 +87,22 @@ export const register = async (req, res, next) => {
 
     await Profile.create({
       user: newUser._id,
-      displayName: fullName || 'User',
+      displayName: safeName,
     });
 
     createSendToken(newUser, 201, req, res);
   } catch (err) {
-    console.error('REGISTER ERROR:', err);
     next(err);
   }
 };
 
 
-//  LOGIN
-
+// ══════════════════════════════════════════════════════════════
+// LOGIN — Validation handled by route middleware (loginSchema)
+// ══════════════════════════════════════════════════════════════
 export const login = async (req, res, next) => {
   try {
     const { email, password } = req.body;
-
-    if (!email || !password) {
-      return next(
-        new AppError('Please provide email and password!', 400)
-      );
-    }
 
     const user = await User.findOne({ email }).select('+password');
 
@@ -120,20 +114,14 @@ export const login = async (req, res, next) => {
   } catch (err) {
     next(err);
   }
-
-  console.log('BODY:', req.body);
 };
 
-// =======================
-// ✅ GOOGLE SIGN-IN
-// =======================
+// ══════════════════════════════════════════════════════════════
+// GOOGLE SIGN-IN — Validation handled by route middleware
+// ══════════════════════════════════════════════════════════════
 export const googleSignIn = async (req, res, next) => {
   try {
     const { credential } = req.body;
-
-    if (!credential) {
-      return next(new AppError('Google credential is required', 400));
-    }
 
     // Verify the Google ID token
     const googleRes = await axios.get(
@@ -145,6 +133,9 @@ export const googleSignIn = async (req, res, next) => {
     if (!email) {
       return next(new AppError('Failed to get email from Google', 400));
     }
+
+    // Sanitize Google-provided data
+    const safeName = sanitizeString(name || email.split('@')[0], 50);
 
     // Check if user exists by googleId or email
     let user = await User.findOne({
@@ -168,7 +159,7 @@ export const googleSignIn = async (req, res, next) => {
     } else {
       // Create new user
       user = await User.create({
-        name: name || email.split('@')[0],
+        name: safeName,
         email,
         googleId,
         authProvider: 'google',
@@ -176,43 +167,42 @@ export const googleSignIn = async (req, res, next) => {
 
       await Profile.create({
         user: user._id,
-        displayName: name || email.split('@')[0],
+        displayName: safeName,
         avatarUrl: picture || null,
       });
     }
 
     createSendToken(user, 200, req, res);
   } catch (err) {
-    console.error('GOOGLE SIGN-IN ERROR:', err?.response?.data || err.message);
-
     if (err?.response?.status === 400) {
       return next(new AppError('Invalid Google credential', 401));
     }
-
     next(err);
   }
 };
 
-// =======================
-// ✅ LOGOUT
-// =======================
+// ══════════════════════════════════════════════════════════════
+// LOGOUT
+// ══════════════════════════════════════════════════════════════
 export const logout = (req, res) => {
   res.cookie('jwt_refresh', 'loggedout', {
     expires: new Date(Date.now() + 10 * 1000),
     httpOnly: true,
+    secure: true,
+    sameSite: 'none',
   });
 
   res.status(200).json({ status: 'success' });
 };
 
-// =======================
-// ✅ REFRESH TOKEN
-// =======================
+// ══════════════════════════════════════════════════════════════
+// REFRESH TOKEN
+// ══════════════════════════════════════════════════════════════
 export const refreshToken = async (req, res, next) => {
   try {
     const rfToken = req.cookies.jwt_refresh;
 
-    if (!rfToken) {
+    if (!rfToken || rfToken === 'loggedout') {
       return next(
         new AppError('Not logged in. Please login again.', 401)
       );
@@ -229,6 +219,10 @@ export const refreshToken = async (req, res, next) => {
       return next(
         new AppError('User no longer exists.', 401)
       );
+    }
+
+    if (user.status === 'blocked') {
+      return next(new AppError('Your account has been blocked.', 403));
     }
 
     const accessToken = signToken(user._id, 'access');

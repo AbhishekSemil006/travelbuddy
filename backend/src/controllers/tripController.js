@@ -2,6 +2,23 @@ import { Trip } from '../models/tripModel.js';
 import { Profile } from '../models/profileModel.js';
 import { AppError } from '../utils/appError.js';
 
+// Allowed fields for trip updates (prevents mass assignment)
+const ALLOWED_TRIP_UPDATE_FIELDS = [
+  'title', 'description', 'destination', 'startDate', 'endDate',
+  'budgetMin', 'budgetMax', 'maxParticipants', 'visibility',
+  'status', 'femaleOnly', 'interests', 'coverImageUrl',
+];
+
+const filterObj = (obj, allowedFields) => {
+  const newObj = {};
+  Object.keys(obj).forEach((key) => {
+    if (allowedFields.includes(key)) {
+      newObj[key] = obj[key];
+    }
+  });
+  return newObj;
+};
+
 // Helper: build participant profile info
 const populateParticipantProfiles = async (trip) => {
   if (!trip.participants || trip.participants.length === 0) return [];
@@ -60,11 +77,13 @@ export const getAllTrips = async (req, res, next) => {
   }
 };
 
-// ── CREATE TRIP ───────────────────────────────────────────────
+// ── CREATE TRIP ── Validation handled by route (createTripSchema) ──
 export const createTrip = async (req, res, next) => {
   try {
-    req.body.creator = req.user._id;
-    const newTrip = await Trip.create(req.body);
+    // Only set creator from authenticated user (never from body)
+    const tripData = { ...req.body, creator: req.user._id };
+
+    const newTrip = await Trip.create(tripData);
 
     res.status(201).json({
       status: 'success',
@@ -102,7 +121,7 @@ export const getTrip = async (req, res, next) => {
   }
 };
 
-// ── UPDATE TRIP ───────────────────────────────────────────────
+// ── UPDATE TRIP ── Validation handled by route (updateTripSchema) ──
 export const updateTrip = async (req, res, next) => {
   try {
     const trip = await Trip.findById(req.params.id);
@@ -111,7 +130,10 @@ export const updateTrip = async (req, res, next) => {
       return next(new AppError('You are not authorized to edit this trip', 403));
     }
 
-    const updatedTrip = await Trip.findByIdAndUpdate(req.params.id, req.body, {
+    // Whitelist allowed fields (prevents mass assignment of creator, participants, etc.)
+    const filteredBody = filterObj(req.body, ALLOWED_TRIP_UPDATE_FIELDS);
+
+    const updatedTrip = await Trip.findByIdAndUpdate(req.params.id, filteredBody, {
       new: true,
       runValidators: true,
     });
@@ -190,7 +212,7 @@ export const requestToJoin = async (req, res, next) => {
         message: `${senderProfile?.displayName || 'Someone'} requested to join "${trip.title}"`,
       });
     } catch (e) {
-      console.error('Notification error:', e.message);
+      // Don't fail the join if notification fails
     }
 
     res.status(200).json({
@@ -231,7 +253,7 @@ export const acceptParticipant = async (req, res, next) => {
         message: `Your request to join "${trip.title}" was accepted!`,
       });
     } catch (e) {
-      console.error('Notification error:', e.message);
+      // Don't fail the accept if notification fails
     }
 
     res.status(200).json({ status: 'success', message: 'Participant accepted' });
@@ -268,7 +290,7 @@ export const declineParticipant = async (req, res, next) => {
         message: `Your request to join "${trip.title}" was declined.`,
       });
     } catch (e) {
-      console.error('Notification error:', e.message);
+      // Don't fail the decline if notification fails
     }
 
     res.status(200).json({ status: 'success', message: 'Request declined' });
@@ -306,7 +328,7 @@ export const removeParticipant = async (req, res, next) => {
         message: `You were removed from "${trip.title}".`,
       });
     } catch (e) {
-      console.error('Notification error:', e.message);
+      // Don't fail the remove if notification fails
     }
 
     res.status(200).json({ status: 'success', message: 'Participant removed' });

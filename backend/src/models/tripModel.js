@@ -11,14 +11,17 @@ const tripSchema = new mongoose.Schema(
       type: String,
       required: [true, 'Trip must have a title'],
       trim: true,
+      maxlength: [100, 'Title must be 100 characters or less'],
     },
     description: {
       type: String,
       trim: true,
+      maxlength: [2000, 'Description must be 2000 characters or less'],
     },
     destination: {
       type: String,
       required: [true, 'Trip must have a destination'],
+      maxlength: [200, 'Destination must be 200 characters or less'],
     },
     startDate: {
       type: Date,

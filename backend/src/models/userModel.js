@@ -49,9 +49,19 @@ const userSchema = new mongoose.Schema(
       enum: ['none', 'pending', 'rejected', 'approved'],
       default: 'none',
     },
-    verificationToken: String,
-    passwordResetToken: String,
-    passwordResetExpires: Date,
+    verificationToken: {
+      type: String,
+      select: false,
+    },
+    passwordResetToken: {
+      type: String,
+      select: false,
+    },
+    passwordResetExpires: {
+      type: Date,
+      select: false,
+    },
+    passwordChangedAt: Date,
     status: {
       type: String,
       enum: ['active', 'blocked'],
@@ -63,6 +73,7 @@ const userSchema = new mongoose.Schema(
     },
     governmentId: {
       type: String,
+      select: false,
     },
     blockedUsers: [
       {

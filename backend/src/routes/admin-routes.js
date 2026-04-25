@@ -16,6 +16,9 @@ import {
 } from '../controllers/adminController.js';
 
 import { protect, restrictTo } from '../middleware/authMiddleware.js';
+import { validate } from '../middleware/validateRequest.js';
+import { adminFineSchema, adminReportStatusSchema, adminUpdateTripSchema } from '../utils/validators.js';
+import { validateObjectIdParams } from '../utils/sanitize.js';
 
 const router = express.Router();
 
@@ -28,20 +31,20 @@ router.get('/dashboard', getDashboardStats);
 
 // Users
 router.get('/users', getAllUsers);
-router.patch('/users/:id/block', toggleUserBlock);
-router.delete('/users/:id', deleteUser);
-router.patch('/users/:id/fine', fineUser);
-router.patch('/users/:id/verify', verifyUser);
+router.patch('/users/:id/block', validateObjectIdParams('id'), toggleUserBlock);
+router.delete('/users/:id', validateObjectIdParams('id'), deleteUser);
+router.patch('/users/:id/fine', validateObjectIdParams('id'), validate(adminFineSchema), fineUser);
+router.patch('/users/:id/verify', validateObjectIdParams('id'), verifyUser);
 
 // Trips
 router.get('/trips', getAllTrips);
-router.get('/trips/:id', getTripDetails);
-router.patch('/trips/:id', updateTrip);
-router.delete('/trips/:id', deleteTrip);
+router.get('/trips/:id', validateObjectIdParams('id'), getTripDetails);
+router.patch('/trips/:id', validateObjectIdParams('id'), validate(adminUpdateTripSchema), updateTrip);
+router.delete('/trips/:id', validateObjectIdParams('id'), deleteTrip);
 
 // Reports
 router.get('/reports', getReports);
-router.patch('/reports/:id', updateReportStatus);
+router.patch('/reports/:id', validateObjectIdParams('id'), validate(adminReportStatusSchema), updateReportStatus);
 
 // Audit Logs
 router.get('/audit', getAuditLogs);

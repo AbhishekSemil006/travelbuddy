@@ -5,54 +5,76 @@ import { Report } from '../models/reportModel.js';
 import { AppError } from '../utils/appError.js';
 import mongoose from "mongoose";
 
+// Allowed fields for admin trip updates
+const ALLOWED_ADMIN_TRIP_FIELDS = [
+  'title', 'description', 'destination', 'status', 'visibility',
+];
+
+const filterObj = (obj, allowedFields) => {
+  const newObj = {};
+  Object.keys(obj).forEach((key) => {
+    if (allowedFields.includes(key)) {
+      newObj[key] = obj[key];
+    }
+  });
+  return newObj;
+};
 
 // Dashboard stats
-export const getDashboardStats = async (req, res) => {
+export const getDashboardStats = async (req, res, next) => {
   try {
-    const users = await User.countDocuments();
-    const trips = await Trip.countDocuments();
+    const [users, trips, pendingReports, pendingVerifications] = await Promise.all([
+      User.countDocuments(),
+      Trip.countDocuments(),
+      Report.countDocuments({ status: 'pending' }),
+      User.countDocuments({ verificationStatus: 'pending' }),
+    ]);
 
-    res.json({
+    res.status(200).json({
       success: true,
-      data: { users, trips }
+      data: { users, trips, pendingReports, pendingVerifications }
     });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    next(err);
   }
 };
 
 // Get all users
-export const getAllUsers = async (req, res) => {
-  const users = await User.find().select('-password');
+export const getAllUsers = async (req, res, next) => {
+  try {
+    const users = await User.find().select('-password -passwordResetToken -verificationToken -blockedUsers');
 
-  res.json({
-    success: true,
-    results: users.length,
-    data: users
-  });
+    res.status(200).json({
+      success: true,
+      results: users.length,
+      data: users
+    });
+  } catch (err) {
+    next(err);
+  }
 };
 
 // User Operations
-export const toggleUserBlock = async (req, res) => {
+export const toggleUserBlock = async (req, res, next) => {
   try {
     const user = await User.findById(req.params.id);
-    if (!user) return res.status(404).json({ message: 'User not found' });
-    if (user.role === 'admin') return res.status(403).json({ message: 'Cannot block admins' });
+    if (!user) return next(new AppError('User not found', 404));
+    if (user.role === 'admin') return next(new AppError('Cannot block admins', 403));
 
     user.status = user.status === 'blocked' ? 'active' : 'blocked';
     await user.save({ validateBeforeSave: false });
 
-    res.json({ success: true, message: `User ${user.status}`, user });
+    res.status(200).json({ success: true, message: `User ${user.status}`, user });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    next(err);
   }
 };
 
-export const deleteUser = async (req, res) => {
+export const deleteUser = async (req, res, next) => {
   try {
     const user = await User.findById(req.params.id);
-    if (!user) return res.status(404).json({ message: 'User not found' });
-    if (user.role === 'admin') return res.status(403).json({ message: 'Cannot delete admins' });
+    if (!user) return next(new AppError('User not found', 404));
+    if (user.role === 'admin') return next(new AppError('Cannot delete admins', 403));
 
     // Cascade delete profile and trips
     await Profile.findOneAndDelete({ user: user._id });
@@ -61,68 +83,28 @@ export const deleteUser = async (req, res) => {
     // Hard delete user
     await User.findByIdAndDelete(req.params.id);
 
-    res.json({ success: true, message: 'User deleted successfully' });
+    res.status(200).json({ success: true, message: 'User deleted successfully' });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    next(err);
   }
 };
 
-export const fineUser = async (req, res) => {
+// Validation handled by route middleware (adminFineSchema)
+export const fineUser = async (req, res, next) => {
   try {
     const { amount } = req.body;
-    if (typeof amount !== 'number' || amount <= 0) {
-      return res.status(400).json({ message: 'Valid positive amount required' });
-    }
 
     const user = await User.findById(req.params.id);
-    if (!user) return res.status(404).json({ message: 'User not found' });
+    if (!user) return next(new AppError('User not found', 404));
 
     user.fineAmount = (user.fineAmount || 0) + amount;
     await user.save({ validateBeforeSave: false });
 
-    res.json({ success: true, message: `Fined $${amount}`, user });
+    res.status(200).json({ success: true, message: `Fined $${amount}`, user });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    next(err);
   }
 };
-
-export const toggleUserVerification = async (req, res) => {
-  try {
-    const user = await User.findById(req.params.id);
-    if (!user) return res.status(404).json({ message: 'User not found' });
-
-    // If currently verified, unverify. Otherwise, approve.
-    if (user.isVerified) {
-      user.isVerified = false;
-      user.verificationStatus = 'none';
-    } else {
-      user.isVerified = true;
-      user.verificationStatus = 'approved';
-    }
-    await user.save({ validateBeforeSave: false });
-
-    res.json({ success: true, message: `User ${user.isVerified ? 'verified' : 'unverified'}`, user });
-  } catch (err) {
-    res.status(500).json({ message: err.message });
-  }
-};
-
-// export const rejectVerification = async (req, res) => {
-//   try {
-//     const user = await User.findById(req.params.id);
-//     if (!user) return res.status(404).json({ message: 'User not found' });
-
-//     user.isVerified = false;
-//     user.verificationStatus = 'rejected';
-//     user.governmentId = undefined; // Clear the rejected document
-//     await user.save({ validateBeforeSave: false });
-
-//     res.json({ success: true, message: 'Verification rejected', user });
-//   } catch (err) {
-//     res.status(500).json({ message: err.message });
-//   }
-// };
-
 
 export const verifyUser = async (req, res, next) => {
   try {
@@ -135,7 +117,6 @@ export const verifyUser = async (req, res, next) => {
     user.isVerified = true;
     user.verificationStatus = "approved";
 
-    // ✅ FIX HERE
     await user.save({ validateBeforeSave: false });
 
     res.status(200).json({
@@ -145,26 +126,29 @@ export const verifyUser = async (req, res, next) => {
     });
 
   } catch (err) {
-    console.error("VERIFY ERROR:", err);
     next(err);
   }
 };
 
 // Trip Operations
-export const getAllTrips = async (req, res) => {
-  const trips = await Trip.find().populate('creator', 'name email');
+export const getAllTrips = async (req, res, next) => {
+  try {
+    const trips = await Trip.find().populate('creator', 'name email');
 
-  res.json({
-    success: true,
-    results: trips.length,
-    data: trips
-  });
+    res.status(200).json({
+      success: true,
+      results: trips.length,
+      data: trips
+    });
+  } catch (err) {
+    next(err);
+  }
 };
 
-export const getTripDetails = async (req, res) => {
+export const getTripDetails = async (req, res, next) => {
   try {
     const trip = await Trip.findById(req.params.id).populate('creator', 'name email');
-    if (!trip) return res.status(404).json({ message: 'Trip not found' });
+    if (!trip) return next(new AppError('Trip not found', 404));
 
     // Populate all participants too
     const userIds = trip.participants.map((p) => p.user);
@@ -181,58 +165,75 @@ export const getTripDetails = async (req, res) => {
         : { displayName: 'Unknown' },
     }));
 
-    res.json({
+    res.status(200).json({
       success: true,
       data: { ...trip.toObject(), participants }
     });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    next(err);
   }
 };
 
-export const updateTrip = async (req, res) => {
+// Validation handled by route middleware (adminUpdateTripSchema)
+export const updateTrip = async (req, res, next) => {
   try {
-    const trip = await Trip.findByIdAndUpdate(req.params.id, req.body, {
+    // Whitelist allowed admin trip update fields
+    const filteredBody = filterObj(req.body, ALLOWED_ADMIN_TRIP_FIELDS);
+
+    const trip = await Trip.findByIdAndUpdate(req.params.id, filteredBody, {
       new: true,
       runValidators: true,
     });
-    if (!trip) return res.status(404).json({ message: 'Trip not found' });
+    if (!trip) return next(new AppError('Trip not found', 404));
 
-    res.json({ success: true, data: trip });
+    res.status(200).json({ success: true, data: trip });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    next(err);
   }
 };
 
-export const deleteTrip = async (req, res) => {
+export const deleteTrip = async (req, res, next) => {
   try {
     const trip = await Trip.findByIdAndDelete(req.params.id);
-    if (!trip) return res.status(404).json({ message: 'Trip not found' });
+    if (!trip) return next(new AppError('Trip not found', 404));
 
-    res.json({ success: true, message: 'Trip deleted forcefully' });
+    res.status(200).json({ success: true, message: 'Trip deleted forcefully' });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    next(err);
   }
 };
 
 // Audit logs (basic version)
-export const getAuditLogs = async (req, res) => {
-  const logs = [
-    { action: 'User Created', user: 'John', time: new Date() },
-    { action: 'Trip Booked', user: 'Alice', time: new Date() }
-  ];
+export const getAuditLogs = async (req, res, next) => {
+  try {
+    const logs = [
+      { action: 'User Created', user: 'John', time: new Date() },
+      { action: 'Trip Booked', user: 'Alice', time: new Date() }
+    ];
 
-  res.json({
-    success: true,
-    data: logs
-  });
+    res.status(200).json({
+      success: true,
+      data: logs
+    });
+  } catch (err) {
+    next(err);
+  }
 };
 
 // ── REPORT MANAGEMENT ─────────────────────────────────────────
 export const getReports = async (req, res, next) => {
   try {
     const { status } = req.query;
-    const filter = status ? { status } : {};
+
+    // Validate status query param if provided
+    const validStatuses = ['pending', 'reviewed', 'dismissed', 'actioned'];
+    const filter = {};
+    if (status) {
+      if (!validStatuses.includes(status)) {
+        return next(new AppError('Invalid status filter', 400));
+      }
+      filter.status = status;
+    }
 
     const reports = await Report.find(filter)
       .sort('-createdAt')
@@ -272,13 +273,10 @@ export const getReports = async (req, res, next) => {
   }
 };
 
+// Validation handled by route middleware (adminReportStatusSchema)
 export const updateReportStatus = async (req, res, next) => {
   try {
     const { status, adminNotes } = req.body;
-
-    if (!status || !['reviewed', 'dismissed', 'actioned'].includes(status)) {
-      return next(new AppError('Valid status required (reviewed, dismissed, actioned)', 400));
-    }
 
     const report = await Report.findByIdAndUpdate(
       req.params.id,

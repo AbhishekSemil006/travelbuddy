@@ -79,13 +79,19 @@ export const getConversations = async (req, res, next) => {
   }
 };
 
-// ── START CONVERSATION ────────────────────────────────────────
+// ── START CONVERSATION ── Validation via route (startConversationSchema) ──
 export const startConversation = async (req, res, next) => {
   try {
     const { otherUserId } = req.body;
-    if (!otherUserId) return next(new AppError('otherUserId is required', 400));
+
     if (otherUserId === req.user._id.toString()) {
       return next(new AppError('Cannot start conversation with yourself', 400));
+    }
+
+    // Verify the other user exists
+    const otherUser = await User.findById(otherUserId);
+    if (!otherUser) {
+      return next(new AppError('User not found', 404));
     }
 
     // Check if conversation already exists
@@ -141,13 +147,10 @@ export const getMessages = async (req, res, next) => {
   }
 };
 
-// ── SEND MESSAGE ──────────────────────────────────────────────
+// ── SEND MESSAGE ── Validation via route (sendMessageSchema) ──
 export const sendMessage = async (req, res, next) => {
   try {
     const { content } = req.body;
-    if (!content || !content.trim()) {
-      return next(new AppError('Message content is required', 400));
-    }
 
     const conversation = await Conversation.findById(req.params.conversationId);
     if (!conversation) return next(new AppError('Conversation not found', 404));
@@ -156,6 +159,22 @@ export const sendMessage = async (req, res, next) => {
       (p) => p.toString() === req.user._id.toString()
     );
     if (!isParticipant) return next(new AppError('Not authorized', 403));
+
+    // Check if either user has blocked the other
+    const otherId = conversation.participants.find(
+      (p) => p.toString() !== req.user._id.toString()
+    );
+    if (otherId) {
+      const currentUser = await User.findById(req.user._id).select('blockedUsers');
+      const otherUser = await User.findById(otherId).select('blockedUsers');
+
+      if (currentUser?.blockedUsers?.some(id => id.toString() === otherId.toString())) {
+        return next(new AppError('You have blocked this user. Unblock to send messages.', 403));
+      }
+      if (otherUser?.blockedUsers?.some(id => id.toString() === req.user._id.toString())) {
+        return next(new AppError('You cannot send messages to this user.', 403));
+      }
+    }
 
     const message = await Message.create({
       conversation: conversation._id,
@@ -172,9 +191,6 @@ export const sendMessage = async (req, res, next) => {
     await conversation.save();
 
     // Create notification for the other user
-    const otherId = conversation.participants.find(
-      (p) => p.toString() !== req.user._id.toString()
-    );
     if (otherId) {
       try {
         const senderProfile = await Profile.findOne({ user: req.user._id });
@@ -208,6 +224,15 @@ export const sendMessage = async (req, res, next) => {
 // ── MARK MESSAGES READ ────────────────────────────────────────
 export const markMessagesRead = async (req, res, next) => {
   try {
+    // Verify user is a participant before marking
+    const conversation = await Conversation.findById(req.params.conversationId);
+    if (!conversation) return next(new AppError('Conversation not found', 404));
+
+    const isParticipant = conversation.participants.some(
+      (p) => p.toString() === req.user._id.toString()
+    );
+    if (!isParticipant) return next(new AppError('Not authorized', 403));
+
     await Message.updateMany(
       {
         conversation: req.params.conversationId,
@@ -223,14 +248,10 @@ export const markMessagesRead = async (req, res, next) => {
   }
 };
 
-// ── REPORT CONVERSATION ───────────────────────────────────────
+// ── REPORT CONVERSATION ── Validation via route (reportConversationSchema) ──
 export const reportConversation = async (req, res, next) => {
   try {
     const { reason, description } = req.body;
-
-    if (!reason) {
-      return next(new AppError('Report reason is required', 400));
-    }
 
     const conversation = await Conversation.findById(req.params.conversationId);
     if (!conversation) return next(new AppError('Conversation not found', 404));
@@ -261,7 +282,7 @@ export const reportConversation = async (req, res, next) => {
       reportedUser: reportedUserId,
       conversation: conversation._id,
       reason,
-      description: description?.trim() || undefined,
+      description: description || undefined,
     });
 
     res.status(201).json({
@@ -330,14 +351,14 @@ export const unblockUser = async (req, res, next) => {
 export const getBlockStatus = async (req, res, next) => {
   try {
     const { userId } = req.params;
-    const currentUser = await User.findById(req.user._id);
+    const currentUser = await User.findById(req.user._id).select('blockedUsers');
 
     const iBlockedThem = currentUser.blockedUsers?.some(
       (id) => id.toString() === userId
     ) || false;
 
     // Also check if the other user blocked me
-    const otherUser = await User.findById(userId);
+    const otherUser = await User.findById(userId).select('blockedUsers');
     const theyBlockedMe = otherUser?.blockedUsers?.some(
       (id) => id.toString() === req.user._id.toString()
     ) || false;
